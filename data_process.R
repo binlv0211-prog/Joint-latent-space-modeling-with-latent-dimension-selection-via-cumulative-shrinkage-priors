@@ -74,15 +74,16 @@ get_AIC_binary = function(A,Y,alpha,gamma_Y,B,Z){
   return(2 * (k+1)*(n+q) - 2 * (sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y)))
 }
 
-get_AIC_normal = function(A,Y,alpha,gamma_Y,B,Z){
+get_AIC_normal = function(A,Y,alpha,gamma_Y,B,Z ,sigma){
   n = dim(A)[1]
   q = dim(Y)[2]
   k = dim(Z)[2]
+  Sigma_matrix = matrix(rep(sigma, n), nrow = m, ncol = length(sigma), byrow = TRUE)
   theta_A = Z %*% t(Z) + matrix(1,n,1)%*%matrix(alpha,1,n) + matrix(alpha,n,1) %*%matrix(1,1,n)
   theta_Y = Z %*% B + (matrix(1,n,1) %*% matrix(gamma_Y,1,q))
   L_A = A * theta_A - log(1 + exp(theta_A))
-  L_Y = Y * theta_Y - theta_Y **2 / 2
-  return(2 * (k+1)*(n+q) - 2 * (sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y)))
+  L_Y = -(Y -theta_Y)**2 / (2 * Sigma_matrix) - log(Sigma_matrix)
+  return(2 * ((k+1)*(n+q) + q) - 2 * (sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y)))
 }
 
 get_BIC_binary = function(A,Y,alpha,gamma_Y,B,Z){
@@ -96,15 +97,16 @@ get_BIC_binary = function(A,Y,alpha,gamma_Y,B,Z){
   return((k+1)*(n+q) * log(n) - 2 * (sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y)))
 }
 
-get_BIC_normal = function(A,Y,alpha,gamma_Y,B,Z){
+get_BIC_normal = function(A,Y,alpha,gamma_Y,B,Z,sigma){
   n = dim(A)[1]
   q = dim(Y)[2]
   k = dim(Z)[2]
+  Sigma_matrix = matrix(rep(sigma, n), nrow = m, ncol = length(sigma), byrow = TRUE)
   theta_A = Z %*% t(Z) + matrix(1,n,1)%*%matrix(alpha,1,n) + matrix(alpha,n,1) %*%matrix(1,1,n)
   theta_Y = Z %*% B + (matrix(1,n,1) %*% matrix(gamma_Y,1,q))
   L_A = A * theta_A - log(1 + exp(theta_A))
-  L_Y = Y * theta_Y - theta_Y **2 / 2
-  return((k+1)*(n+q) * log(n) - 2 * (sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y)))
+  L_Y = -(Y -theta_Y)**2 / (2 * Sigma_matrix) - log(Sigma_matrix)
+  return(((k+1)*(n+q) + q) * log(n) - 2 * (sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y)))
 }
 
 get_DIC_binary = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
@@ -137,7 +139,7 @@ get_DIC_binary = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
 }
 
 
-get_DIC_normal = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
+get_DIC_normal = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc,sigma_mcmc){
   n = dim(A)[1]
   q = dim(Y)[2]
   k = dim(Z_mcmc)[3]
@@ -146,10 +148,12 @@ get_DIC_normal = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
   gamma_Y = apply(gamma_Y_mcmc, 2, mean)
   B = apply(B_mcmc,c(2,3),mean)
   Z = apply(Z_mcmc,c(2,3),mean)
+  sigma = apply(sigma_mcmc, 2, mean)
+  Sigma_matrix = matrix(rep(sigma, n), nrow = m, ncol = length(sigma), byrow = TRUE)
   theta_A = Z %*% t(Z) + matrix(1,n,1)%*%matrix(alpha,1,n) + matrix(alpha,n,1) %*%matrix(1,1,n)
   theta_Y = Z %*% B + (matrix(1,n,1) %*% matrix(gamma_Y,1,q))
   L_A = A * theta_A - log(1 + exp(theta_A))
-  L_Y = Y * theta_Y - theta_Y **2 / 2
+  L_Y = -(Y -theta_Y)**2 / (2 * Sigma_matrix) - log(Sigma_matrix)
   D_hat = - 2 * (sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y))
   bar_D = 1:len
   for (i in 1:len) {
@@ -157,10 +161,12 @@ get_DIC_normal = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
     gamma_Yi = gamma_Y_mcmc[i,]
     Zi = matrix(Z_mcmc[i, , ], nrow = n, ncol = k) 
     Bi = matrix(B_mcmc[i, , ], nrow = k, ncol = q) 
+    sigmai = sigma_mcmc[i,]
+    Sigmai_matrix = matrix(rep(sigmai, n), nrow = m, ncol = length(sigmai), byrow = TRUE)
     theta_Ai = Zi %*% t(Zi) + matrix(1,n,1)%*%matrix(alphai,1,n) + matrix(alphai,n,1) %*%matrix(1,1,n)
     theta_Yi = Zi %*% Bi + (matrix(1,n,1) %*% matrix(gamma_Yi,1,q))
-    L_Ai = A * theta_Ai - log(1 + exp(theta_Ai))
-    L_Yi = Y * theta_Yi - theta_Yi **2 / 2
+    L_A[i,,] = A * theta_Ai - log(1 + exp(theta_Ai))
+    L_Y[i,,] = -(Y -theta_Yi)**2 / (2 * Sigmai_matrix) - log(Sigmai_matrix)
     bar_D[i] = - 2 * (sum(L_Ai[upper.tri(L_Ai, diag = FALSE)]) + sum(L_Yi))
   }
   return(2 * mean(bar_D) - D_hat)
@@ -190,7 +196,7 @@ get_WAIC_binary = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
   return(-2 * (sum(lppd_A[upper.tri(lppd_A, diag = FALSE)]) - sum(pwaic_A[upper.tri(pwaic_A, diag = FALSE)]) + sum(lppd_Y) - sum(pwaic_Y)))
 }
 
-get_WAIC_normal = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
+get_WAIC_normal = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc,sigma_mcmc){
   n = dim(A)[1]
   q = dim(Y)[2]
   k = dim(Z_mcmc)[3]
@@ -201,11 +207,13 @@ get_WAIC_normal = function(A,Y,alpha_mcmc, gamma_Y_mcmc,B_mcmc,Z_mcmc){
     alphai = alpha_mcmc[i,]
     gamma_Yi = gamma_Y_mcmc[i,]
     Zi = matrix(Z_mcmc[i, , ], nrow = n, ncol = k) 
-    Bi = matrix(B_mcmc[i, , ], nrow = k, ncol = q) 
+    Bi = matrix(B_mcmc[i, , ], nrow = k, ncol = q)
+    sigmai = sigma_mcmc[i,]
+    Sigmai_matrix = matrix(rep(sigmai, n), nrow = m, ncol = length(sigmai), byrow = TRUE)
     theta_Ai = Zi %*% t(Zi) + matrix(1,n,1)%*%matrix(alphai,1,n) + matrix(alphai,n,1) %*%matrix(1,1,n)
     theta_Yi = Zi %*% Bi + (matrix(1,n,1) %*% matrix(gamma_Yi,1,q))
     L_A[i,,] = A * theta_Ai - log(1 + exp(theta_Ai))
-    L_Y[i,,] = Y * theta_Yi - theta_Yi **2 / 2
+    L_Y[i,,] = -(Y -theta_Yi)**2 / (2 * Sigmai_matrix) - log(Sigmai_matrix)
   }
   lppd_A = log(apply(exp(L_A), c(2,3),mean))
   lppd_Y = log(apply(exp(L_Y), c(2,3),mean))
@@ -240,14 +248,15 @@ get_loglikehood_binary = function(A,Y,alpha,gamma_Y,B,Z){
   return(sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y))
 }
 
-get_loglikehood_normal = function(A,Y,alpha,gamma_Y,B,Z){
+get_loglikehood_normal = function(A,Y,alpha,gamma_Y,B,Z,sigma){
   n = dim(A)[1]
   q = dim(Y)[2]
   k = dim(Z)[2]
+  Sigma_matrix = matrix(rep(sigma, n), nrow = m, ncol = length(sigma), byrow = TRUE)
   theta_A = Z %*% t(Z) + matrix(1,n,1)%*%matrix(alpha,1,n) + matrix(alpha,n,1) %*%matrix(1,1,n)
   theta_Y = Z %*% B + (matrix(1,n,1) %*% matrix(gamma_Y,1,q))
   L_A = A * theta_A - log(1 + exp(theta_A))
-  L_Y = Y * theta_Y - theta_Y **2 / 2
+  L_Y = -(Y -theta_Y)**2 / (2 * Sigma_matrix) - log(Sigma_matrix)
   return(sum(L_A[upper.tri(L_A, diag = FALSE)]) + sum(L_Y))
 }
 

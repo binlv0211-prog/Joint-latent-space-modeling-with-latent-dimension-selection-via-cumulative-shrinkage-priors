@@ -99,7 +99,7 @@ res = foreach(iter = 1:replation, .verbose = TRUE, .packages = c("MASS","pgdraw"
         kf_outz = network_normal_kf_getZ(A_test,Y_test,gamma_Y,inv_sigma,B,nrun,burn,thin)
         alpha_test = apply(kf_outz$alpha,2,mean)
         Z_test = apply(kf_outz$Z,c(2,3),mean)
-        loglikehood[j,jj] = get_loglikehood_binary(A_test,Y_test,alpha_test,gamma_Y,B,Z_test)      
+        loglikehood[j,jj] = get_loglikehood_normal(A_test,Y_test,alpha_test,gamma_Y,B,Z_test, 1/inv_sigma)      
       }
     }
     res_likehood_total[[i]] = loglikehood
